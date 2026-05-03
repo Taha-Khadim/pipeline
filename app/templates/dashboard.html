@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div x-data="dashboardApp()" x-init="initCharts()">
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--text)">Dashboard</h1>
+      <p class="mt-1 text-sm" style="color: var(--text-muted)">Lumora Code — your sales pipeline at a glance</p>
+    </div>
+    <a href="/discover" class="btn-primary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+      Discover Leads
+    </a>
+  </div>
+
+  <!-- KPI row (every card links to a filtered leads view) -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <a href="/leads" class="stat-card card-interactive block">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium uppercase tracking-wide" style="color: var(--text-muted)">Total Leads</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--accent-soft)">
+          <svg class="w-4 h-4" style="color: var(--accent-text)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+      </div>
+      <div class="text-3xl font-bold mt-2" style="color: var(--text)">{{ total }}</div>
+      <div class="text-xs mt-1" style="color: var(--text-muted)">{{ no_website }} need a website</div>
+    </a>
+
+    <a href="/leads?status=CONTACTED" class="stat-card card-interactive block">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium uppercase tracking-wide" style="color: var(--text-muted)">Contacted</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--warning-soft)">
+          <svg class="w-4 h-4" style="color: var(--warning)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+        </div>
+      </div>
+      <div class="text-3xl font-bold mt-2" style="color: var(--text)">{{ contacted }}</div>
+      <div class="text-xs mt-1" style="color: var(--text-muted)">{{ total_outreach }} messages sent</div>
+    </a>
+
+    <a href="/leads?status=RESPONDED" class="stat-card card-interactive block">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium uppercase tracking-wide" style="color: var(--text-muted)">Response Rate</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--success-soft)">
+          <svg class="w-4 h-4" style="color: var(--success)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg>
+        </div>
+      </div>
+      <div class="text-3xl font-bold mt-2" style="color: var(--text)">{{ response_rate }}%</div>
+      <div class="text-xs mt-1" style="color: var(--text-muted)">{{ responded }} replied</div>
+    </a>
+
+    <a href="/leads?status=CLOSED_WON" class="stat-card card-interactive block">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-medium uppercase tracking-wide" style="color: var(--text-muted)">Clients Won</span>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background: var(--success-soft)">
+          <svg class="w-4 h-4" style="color: var(--success)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+      </div>
+      <div class="text-3xl font-bold mt-2" style="color: var(--text)">{{ closed_won }}</div>
+      <div class="text-xs mt-1" style="color: var(--text-muted)">deals closed</div>
+    </a>
+  </div>
+
+  <!-- Charts row -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Pipeline doughnut -->
+    <div class="card">
+      <h2 class="text-sm font-semibold mb-4" style="color: var(--text)">Pipeline Breakdown</h2>
+      <div class="chart-container flex items-center justify-center" style="height: 220px">
+        <canvas id="pipelineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Pipeline funnel -->
+    <div class="card lg:col-span-2">
+      <h2 class="text-sm font-semibold mb-4" style="color: var(--text)">Pipeline Funnel</h2>
+      <div class="space-y-2">
+        {% set max_count = status_counts.values()|max if status_counts.values()|list else 1 %}
+        {% set funnel_colors = {
+          'FOUND': '#0284c7', 'RESEARCHED': '#7c3aed', 'CONTACTED': '#d97706',
+          'RESPONDED': '#16a34a', 'CALL_BOOKED': '#0891b2', 'PROPOSAL_SENT': '#9333ea',
+          'CLOSED_WON': '#22c55e', 'CLOSED_LOST': '#dc2626'
+        } %}
+        {% for status, count in status_counts.items() %}
+        {% set pct = (count / max_count * 100) if max_count > 0 else 0 %}
+        <a href="/leads?status={{ status }}" class="flex items-center gap-3 group hover:opacity-90 transition" title="Show {{ status.replace('_', ' ') }} leads">
+          <span class="text-xs font-medium w-28 text-right truncate" style="color: var(--text-secondary)">{{ status.replace('_', ' ') }}</span>
+          <div class="flex-1">
+            <div class="funnel-bar group-hover:scale-x-[1.01] origin-left transition" style="width: {{ pct if pct > 8 else 8 }}%; background: {{ funnel_colors.get(status, '#6b7280') }}; opacity: {{ 0.95 if count > 0 else 0.3 }}">
+              {{ count }}
+            </div>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Second charts row -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <!-- Industry chart -->
+    <div class="card">
+      <h2 class="text-sm font-semibold mb-4" style="color: var(--text)">Leads by Industry</h2>
+      <div class="chart-container" style="height: 240px">
+        <canvas id="industryChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Website status -->
+    <div class="card">
+      <h2 class="text-sm font-semibold mb-4" style="color: var(--text)">Website Status</h2>
+      <div class="chart-container flex items-center justify-center" style="height: 240px">
+        <canvas id="websiteChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent leads -->
+  <div class="card">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold" style="color: var(--text)">Recent Leads</h2>
+      <a href="/leads" class="text-xs font-medium text-accent hover:underline">View all &rarr;</a>
+    </div>
+    {% if recent_leads %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left" style="color: var(--text-muted); border-bottom: 1px solid var(--border)">
+            <th class="pb-3 pr-4 font-medium text-xs uppercase tracking-wide">Business</th>
+            <th class="pb-3 pr-4 font-medium text-xs uppercase tracking-wide">Industry</th>
+            <th class="pb-3 pr-4 font-medium text-xs uppercase tracking-wide">Location</th>
+            <th class="pb-3 pr-4 font-medium text-xs uppercase tracking-wide">Website</th>
+            <th class="pb-3 font-medium text-xs uppercase tracking-wide">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lead in recent_leads %}
+          <tr class="table-row cursor-pointer" onclick="window.location='/leads/{{ lead.id }}'">
+            <td class="py-3 pr-4 font-medium" style="color: var(--text)">{{ lead.business_name }}</td>
+            <td class="py-3 pr-4" style="color: var(--text-secondary)">{{ lead.industry }}</td>
+            <td class="py-3 pr-4" style="color: var(--text-secondary)">{{ lead.city }}, {{ lead.country }}</td>
+            <td class="py-3 pr-4">
+              {% if lead.has_website %}
+              <span class="text-xs font-medium" style="color: var(--success)">Has site</span>
+              {% else %}
+              <span class="badge" style="background: var(--danger-soft); color: var(--danger); border-color: rgba(220,38,38,0.15)">No Website</span>
+              {% endif %}
+            </td>
+            <td class="py-3">
+              <span class="badge badge-{{ lead.status.value|lower }}">{{ lead.status.value.replace('_', ' ') }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+      <svg class="w-12 h-12 mx-auto mb-3" style="color: var(--text-muted)" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+      <p class="text-sm" style="color: var(--text-muted)">No leads yet.</p>
+      <a href="/discover" class="btn-primary mt-3 inline-flex">Start Discovering</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dashboardApp() {
+  return {
+    initCharts() {
+      this.createPipelineChart();
+      this.createIndustryChart();
+      this.createWebsiteChart();
+      window.addEventListener('theme-changed', () => {
+        setTimeout(() => {
+          this.createPipelineChart();
+          this.createIndustryChart();
+          this.createWebsiteChart();
+        }, 50);
+      });
+    },
+
+    createPipelineChart() {
+      const ctx = document.getElementById('pipelineChart');
+      if (!ctx) return;
+      if (ctx._chart) ctx._chart.destroy();
+      const c = getChartColors();
+      const data = {{ status_counts | tojson }};
+      const labels = Object.keys(data).map(s => s.replace('_', ' '));
+      const values = Object.values(data);
+      const colors = Object.keys(data).map(s => c.status[s] || '#6b7280');
+
+      ctx._chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'right', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: c.text } }
+          }
+        }
+      });
+    },
+
+    createIndustryChart() {
+      const ctx = document.getElementById('industryChart');
+      if (!ctx) return;
+      if (ctx._chart) ctx._chart.destroy();
+      const c = getChartColors();
+      const data = {{ top_industries | tojson }};
+      const labels = data.map(d => d.industry || d[0]);
+      const values = data.map(d => d.cnt || d[1]);
+
+      ctx._chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: c.accentLight,
+            borderColor: c.accent,
+            borderWidth: 1.5,
+            borderRadius: 6,
+            barPercentage: 0.6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { grid: { color: c.grid }, ticks: { color: c.textMuted, font: { size: 11 } } },
+            y: { grid: { display: false }, ticks: { color: c.text, font: { size: 11 } } },
+          },
+          plugins: { legend: { display: false } }
+        }
+      });
+    },
+
+    createWebsiteChart() {
+      const ctx = document.getElementById('websiteChart');
+      if (!ctx) return;
+      if (ctx._chart) ctx._chart.destroy();
+      const c = getChartColors();
+      const noSite = {{ no_website }};
+      const hasSite = {{ total }} - noSite;
+
+      ctx._chart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['No Website', 'Has Website'],
+          datasets: [{
+            data: [noSite, hasSite],
+            backgroundColor: [c.status.CLOSED_LOST, c.status.RESPONDED],
+            borderWidth: 0,
+            hoverOffset: 6,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { boxWidth: 10, padding: 16, font: { size: 11 }, color: c.text } }
+          }
+        }
+      });
+    }
+  };
+}
+</script>
+{% endblock %}

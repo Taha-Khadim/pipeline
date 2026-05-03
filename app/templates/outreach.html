@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+{% block title %}Outreach{% endblock %}
+
+{% block content %}
+<div x-data="outreachApp()">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--text)">Outreach Generator</h1>
+      <p class="mt-1 text-sm" style="color: var(--text-muted)">AI-powered cold emails, call scripts, and DMs</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Controls -->
+    <div class="space-y-6">
+      <div class="card">
+        <h3 class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--text-muted)">Select Lead</h3>
+        <select x-model="selectedLeadId" @change="onLeadChange()" class="input-field">
+          <option value="">Choose a lead...</option>
+          {% for l in leads %}
+          <option value="{{ l.id }}" {% if selected_lead and selected_lead.id == l.id %}selected{% endif %}>
+            {{ l.business_name }} — {{ l.city }} ({{ l.industry }})
+          </option>
+          {% endfor %}
+        </select>
+        <template x-if="selectedLead">
+          <div class="mt-3 p-3 rounded-lg text-sm" style="background: var(--bg-surface-raised); border: 1px solid var(--border-subtle)">
+            <div class="font-medium" style="color: var(--text)" x-text="selectedLead.business_name"></div>
+            <div class="mt-1" style="color: var(--text-muted)">
+              <span x-text="selectedLead.industry"></span> &bull; <span x-text="selectedLead.city + ', ' + selectedLead.country"></span>
+            </div>
+            <div class="flex gap-3 mt-2">
+              <span x-show="selectedLead.phone" class="text-xs" style="color: var(--text-muted)" x-text="selectedLead.phone"></span>
+              <span x-show="!selectedLead.has_website" class="text-xs font-medium" style="color: var(--danger)">No website</span>
+              <span x-show="selectedLead.has_website" class="text-xs font-medium" style="color: var(--success)">Has website</span>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="card">
+        <h3 class="text-xs font-medium uppercase tracking-wide mb-3" style="color: var(--text-muted)">Outreach Type</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <button @click="outreachType = 'email'" class="card-interactive !p-3 text-left text-sm"
+                  :style="outreachType === 'email' ? 'background: var(--accent-soft); border-color: var(--accent-border)' : ''">
+            <div class="font-medium" :style="outreachType === 'email' ? 'color: var(--accent-text)' : 'color: var(--text)'">Cold Email</div>
+            <div class="text-xs mt-0.5" style="color: var(--text-muted)">Subject + body</div>
+          </button>
+          <button @click="outreachType = 'call_script'" class="card-interactive !p-3 text-left text-sm"
+                  :style="outreachType === 'call_script' ? 'background: var(--accent-soft); border-color: var(--accent-border)' : ''">
+            <div class="font-medium" :style="outreachType === 'call_script' ? 'color: var(--accent-text)' : 'color: var(--text)'">Call Script</div>
+            <div class="text-xs mt-0.5" style="color: var(--text-muted)">Pitch + objections</div>
+          </button>
+          <button @click="outreachType = 'dm'" class="card-interactive !p-3 text-left text-sm"
+                  :style="outreachType === 'dm' ? 'background: var(--accent-soft); border-color: var(--accent-border)' : ''">
+            <div class="font-medium" :style="outreachType === 'dm' ? 'color: var(--accent-text)' : 'color: var(--text)'">DM Message</div>
+            <div class="text-xs mt-0.5" style="color: var(--text-muted)">Short & casual</div>
+          </button>
+          <button @click="outreachType = 'followup'" class="card-interactive !p-3 text-left text-sm"
+                  :style="outreachType === 'followup' ? 'background: var(--accent-soft); border-color: var(--accent-border)' : ''">
+            <div class="font-medium" :style="outreachType === 'followup' ? 'color: var(--accent-text)' : 'color: var(--text)'">Follow-up</div>
+            <div class="text-xs mt-0.5" style="color: var(--text-muted)">Case study / breakup</div>
+          </button>
+        </div>
+
+        <template x-if="outreachType === 'dm'">
+          <div class="mt-3">
+            <label class="text-xs" style="color: var(--text-muted)">Platform</label>
+            <select x-model="dmChannel" class="input-field mt-1">
+              <option value="LinkedIn">LinkedIn</option>
+              <option value="Instagram">Instagram</option>
+              <option value="Facebook">Facebook</option>
+            </select>
+          </div>
+        </template>
+        <template x-if="outreachType === 'followup'">
+          <div class="mt-3">
+            <label class="text-xs" style="color: var(--text-muted)">Style</label>
+            <select x-model="followupType" class="input-field mt-1">
+              <option value="case_study">Case Study / Social Proof</option>
+              <option value="breakup">Breakup Email (final try)</option>
+            </select>
+          </div>
+        </template>
+      </div>
+
+      <!-- Custom hook / context -->
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-medium uppercase tracking-wide" style="color: var(--text-muted)">Hook / Custom Context</h3>
+          <span class="text-xs" style="color: var(--text-muted)">optional but recommended</span>
+        </div>
+        <textarea x-model="userContext" rows="4" class="input-field"
+                  placeholder="Tell the AI what to lead with. E.g. 'They have 4.9 stars but no website — losing local search traffic.', 'Saw they just opened a new branch in DHA.', 'Their site loads in 8s on mobile.'"></textarea>
+        <div class="flex flex-wrap gap-1 mt-2">
+          <button type="button" @click="useTemplate('no_site')" class="pill text-xs">No website angle</button>
+          <button type="button" @click="useTemplate('reviews')" class="pill text-xs">Lots of reviews angle</button>
+          <button type="button" @click="useTemplate('slow_site')" class="pill text-xs">Slow / outdated site</button>
+          <button type="button" @click="useTemplate('local_seo')" class="pill text-xs">Local SEO angle</button>
+        </div>
+      </div>
+
+      <button @click="generate()" :disabled="!selectedLeadId || generating" class="btn-primary w-full justify-center py-3">
+        <template x-if="!generating">
+          <span class="flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+            Generate with AI
+          </span>
+        </template>
+        <template x-if="generating">
+          <span class="flex items-center gap-2">
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            Generating...
+          </span>
+        </template>
+      </button>
+    </div>
+
+    <!-- Output -->
+    <div class="space-y-6">
+      <template x-if="errorMsg">
+        <div class="card" style="border-color: rgba(220,38,38,0.3)">
+          <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 mt-0.5 flex-shrink-0" style="color: var(--danger)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+            <div class="text-sm" style="color: var(--text)">
+              <div class="font-semibold mb-1">Could not generate outreach</div>
+              <div style="color: var(--text-secondary)" x-text="errorMsg"></div>
+              <a href="/settings" class="inline-block mt-2 text-xs text-accent hover:underline">Open Settings &rarr;</a>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="result && outreachType === 'email'">
+        <div class="card">
+          <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Subject</h3>
+          <input type="text" x-model="result.subject" class="input-field mb-4">
+          <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Body</h3>
+          <textarea x-model="result.body" class="input-field" rows="14"></textarea>
+          <div class="flex gap-2 mt-4">
+            <button @click="copyToClipboard(result.subject + '\n\n' + result.body)" class="btn-secondary">Copy</button>
+            <button @click="logOutreach('EMAIL', result.subject, result.body)" class="btn-primary">Mark as Sent</button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="result && outreachType === 'call_script'">
+        <div class="card space-y-4">
+          <div>
+            <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Opening</h3>
+            <div class="p-3 rounded-lg text-sm whitespace-pre-wrap" style="background: var(--bg-surface-raised); color: var(--text)" x-text="result.opening"></div>
+          </div>
+          <div>
+            <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Value Pitch</h3>
+            <div class="p-3 rounded-lg text-sm whitespace-pre-wrap" style="background: var(--bg-surface-raised); color: var(--text)" x-text="result.value_pitch"></div>
+          </div>
+          <div>
+            <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">CTA</h3>
+            <div class="p-3 rounded-lg text-sm whitespace-pre-wrap" style="background: var(--bg-surface-raised); color: var(--text)" x-text="result.cta"></div>
+          </div>
+          <div>
+            <h3 class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--text-muted)">Objection Handling</h3>
+            <template x-for="(resp, obj) in (result.objection_responses || {})" :key="obj">
+              <div class="mb-2">
+                <span class="text-xs font-semibold uppercase" style="color: var(--danger)" x-text="obj"></span>
+                <div class="p-2 rounded-lg text-sm mt-1" style="background: var(--bg-surface-raised); color: var(--text-secondary)" x-text="resp"></div>
+              </div>
+            </template>
+          </div>
+          <div class="flex gap-2">
+            <button @click="copyToClipboard(JSON.stringify(result, null, 2))" class="btn-secondary">Copy All</button>
+            <button @click="logOutreach('COLD_CALL', '', result.opening + '\n\n' + result.value_pitch)" class="btn-primary">Log Call</button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="result && outreachType === 'dm'">
+        <div class="card">
+          <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">DM Message</h3>
+          <textarea x-model="result.message" class="input-field" rows="6"></textarea>
+          <div class="flex gap-2 mt-4">
+            <button @click="copyToClipboard(result.message)" class="btn-secondary">Copy</button>
+            <button @click="logOutreach(dmChannel.toUpperCase() + '_DM', '', result.message)" class="btn-primary">Mark as Sent</button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="result && outreachType === 'followup'">
+        <div class="card">
+          <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Subject</h3>
+          <input type="text" x-model="result.subject" class="input-field mb-4">
+          <h3 class="text-xs font-medium uppercase tracking-wide mb-1.5" style="color: var(--text-muted)">Body</h3>
+          <textarea x-model="result.body" class="input-field" rows="10"></textarea>
+          <div class="flex gap-2 mt-4">
+            <button @click="copyToClipboard(result.subject + '\n\n' + result.body)" class="btn-secondary">Copy</button>
+            <button @click="logOutreach('EMAIL', result.subject, result.body)" class="btn-primary">Mark as Sent</button>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="!result">
+        <div class="card flex flex-col items-center justify-center h-72" style="color: var(--text-muted)">
+          <svg class="w-12 h-12 mb-3" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456z"/></svg>
+          <p class="text-sm">Select a lead and click "Generate with AI"</p>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function outreachApp() {
+  return {
+    selectedLeadId: '{{ selected_lead.id if selected_lead else "" }}',
+    selectedLead: {% if selected_lead %}{ id: {{ selected_lead.id }}, business_name: {{ selected_lead.business_name|tojson }}, industry: {{ selected_lead.industry|tojson }}, city: {{ selected_lead.city|tojson }}, country: {{ selected_lead.country|tojson }}, phone: {{ selected_lead.phone|tojson }}, has_website: {{ selected_lead.has_website|tojson }} }{% else %}null{% endif %},
+    outreachType: 'email', dmChannel: 'LinkedIn', followupType: 'case_study',
+    userContext: '',
+    generating: false, result: null, errorMsg: '',
+
+    contextTemplates: {
+      no_site:    "They don't have a website. People searching them on Google find nothing — they're losing local customers to competitors who do show up. A simple one-page site that loads instantly and has their phone, hours, and a 'Book/Order' button would close that gap.",
+      reviews:    "They have great Google reviews but no place online to convert that social proof. A simple site that surfaces those reviews + a clear CTA would multiply the value of every existing customer.",
+      slow_site:  "Their existing site looks dated and loads slowly on mobile — people bounce before they ever see what the business offers. A modern, fast rebuild would directly translate to more bookings/orders.",
+      local_seo:  "They're invisible for local searches like '<industry> near me'. With proper local SEO + Google Business Profile cleanup, they could rank in the top 3 within weeks.",
+    },
+
+    useTemplate(name) {
+      this.userContext = this.contextTemplates[name] || '';
+    },
+
+    async onLeadChange() {
+      if (!this.selectedLeadId) { this.selectedLead = null; return; }
+      try { this.selectedLead = await api(`/leads/api/${this.selectedLeadId}`); } catch(e) {}
+    },
+    async generate() {
+      if (!this.selectedLeadId) return;
+      this.generating = true; this.result = null; this.errorMsg = '';
+      try {
+        const r = await api('/outreach/api/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            lead_id: parseInt(this.selectedLeadId),
+            type: this.outreachType,
+            channel: this.dmChannel,
+            followup_type: this.followupType,
+            context: this.userContext,
+          }),
+        });
+        if (r && r.error) {
+          this.errorMsg = r.error;
+          toast(r.error, 'error');
+        } else {
+          this.result = r;
+          toast('Outreach generated', 'success');
+        }
+      } catch(e) {
+        this.errorMsg = (e && e.message) || 'Generation failed. Check your Gemini API key in Settings.';
+      }
+      this.generating = false;
+    },
+    async logOutreach(channel, subject, content) {
+      try {
+        await api('/outreach/api/log', { method: 'POST', body: JSON.stringify({ lead_id: parseInt(this.selectedLeadId), channel, subject, content }) });
+        toast('Outreach logged!', 'success');
+      } catch(e) {}
+    },
+    copyToClipboard(text) { navigator.clipboard.writeText(text); toast('Copied to clipboard', 'success'); }
+  };
+}
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Code icon (Lucide) in amber-400 -->
+  <polyline points="19 10 25 16 19 22" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <polyline points="11 10 5 16 11 22" stroke="#fbbf24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Zap icon (Lucide) in amber-300 at top-right -->
+  <g transform="translate(19,-1) scale(0.5)">
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="#fcd34d" stroke-width="2" stroke-linejoin="round"/>
+  </g>
+</svg>

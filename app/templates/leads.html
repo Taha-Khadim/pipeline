@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block title %}Pipeline{% endblock %}
+
+{% block content %}
+<div x-data="pipelineApp()" x-init="init()">
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--text)">Sales Pipeline</h1>
+      <p class="mt-1 text-sm" style="color: var(--text-muted)">
+        <span x-text="leads.length"></span> shown
+        <template x-if="totalCount > leads.length">
+          <span> of <span x-text="totalCount"></span></span>
+        </template>
+        <span> &bull; </span>
+        <span x-text="selected.length"></span> selected
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <button @click="bulkDelete()" x-show="selected.length > 0" class="btn-ghost" style="color: var(--danger)">
+        Delete <span x-text="selected.length"></span>
+      </button>
+      <a href="/discover" class="btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+        Find New Leads
+      </a>
+    </div>
+  </div>
+
+  <!-- Search + status -->
+  <div class="card mb-4">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <input type="text" x-model="filters.q" @input.debounce.300ms="fetchLeads()" placeholder="Search name, owner, city..." class="input-field">
+      <select x-model="filters.status" @change="fetchLeads()" class="input-field">
+        <option value="">All Statuses</option>
+        {% for s in statuses %}
+        <option value="{{ s }}">{{ s.replace('_', ' ') }}</option>
+        {% endfor %}
+      </select>
+      <input type="text" x-model="filters.city" @input.debounce.300ms="fetchLeads()" placeholder="City..." class="input-field">
+      <button @click="resetFilters()" class="btn-ghost justify-center">Clear filters</button>
+    </div>
+
+    <!-- Contact-info quick filters -->
+    <div class="mt-4 flex flex-wrap gap-2 items-center">
+      <span class="text-xs uppercase tracking-wide font-medium" style="color: var(--text-muted)">Contact:</span>
+      <button @click="toggleFilter('has_phone','true')" class="pill" :class="filters.has_phone === 'true' ? 'active' : ''">
+        <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>
+        Has Phone
+      </button>
+      <button @click="toggleFilter('has_email','true')" class="pill" :class="filters.has_email === 'true' ? 'active' : ''">
+        <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
+        Has Email
+      </button>
+      <button @click="toggleFilter('has_website','true')" class="pill" :class="filters.has_website === 'true' ? 'active' : ''">
+        <svg class="w-3.5 h-3.5 inline-block mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
+        Has Website
+      </button>
+      <button @click="toggleFilter('has_website','false')" class="pill" :class="filters.has_website === 'false' ? 'active' : ''" style="color: var(--danger)">
+        No Website
+      </button>
+      <span class="mx-1 text-xs" style="color: var(--text-muted)">|</span>
+      <button @click="setComboFilter('email_no_site')" class="pill" :class="comboFilter === 'email_no_site' ? 'active' : ''">
+        Email + No Website
+      </button>
+      <button @click="setComboFilter('phone_no_site')" class="pill" :class="comboFilter === 'phone_no_site' ? 'active' : ''">
+        Phone + No Website
+      </button>
+    </div>
+  </div>
+
+  <!-- Status pills -->
+  <div class="flex gap-1.5 mb-4 overflow-x-auto pb-1">
+    <template x-for="(count, status) in statusCounts" :key="status">
+      <button @click="filters.status = filters.status === status ? '' : status; fetchLeads()"
+              class="pill" :class="filters.status === status ? 'active' : ''">
+        <span x-text="status.replace('_', ' ')"></span>
+        <span class="ml-1 opacity-60" x-text="count"></span>
+      </button>
+    </template>
+  </div>
+
+  <!-- Table -->
+  <div class="card !p-0 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left" style="color: var(--text-muted); border-bottom: 1px solid var(--border); background: var(--bg-surface-raised)">
+            <th class="px-4 py-3 w-10">
+              <input type="checkbox" :checked="selected.length === leads.length && leads.length > 0" @change="toggleAll()" class="cursor-pointer">
+            </th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Business</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Industry</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Location</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Phone</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Email</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Website</th>
+            <th class="px-4 py-3 font-medium text-xs uppercase tracking-wide">Status</th>
+            <th class="px-4 py-3 w-12"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <template x-for="lead in leads" :key="lead.id">
+            <tr class="table-row">
+              <td class="px-4 py-3" @click.stop>
+                <input type="checkbox" :checked="selected.includes(lead.id)" @change="toggleSelect(lead.id)" class="cursor-pointer">
+              </td>
+              <td class="px-4 py-3 cursor-pointer" @click="window.location = '/leads/' + lead.id">
+                <div class="font-medium" style="color: var(--text)" x-text="lead.business_name"></div>
+                <div class="text-xs mt-0.5" style="color: var(--text-muted)" x-show="lead.owner_name" x-text="lead.owner_name"></div>
+              </td>
+              <td class="px-4 py-3 cursor-pointer" @click="window.location = '/leads/' + lead.id" style="color: var(--text-secondary)" x-text="lead.industry"></td>
+              <td class="px-4 py-3 cursor-pointer" @click="window.location = '/leads/' + lead.id">
+                <span style="color: var(--text-secondary)" x-text="lead.city"></span>
+              </td>
+              <td class="px-4 py-3">
+                <a x-show="lead.phone" :href="'tel:' + lead.phone" @click.stop style="color: var(--text-secondary)" class="hover:underline" x-text="lead.phone"></a>
+                <span x-show="!lead.phone" style="color: var(--text-muted)">&mdash;</span>
+              </td>
+              <td class="px-4 py-3">
+                <template x-if="lead.emails && lead.emails.length">
+                  <a :href="'mailto:' + lead.emails[0]" @click.stop class="text-accent hover:underline truncate block max-w-[180px]" x-text="lead.emails[0]"></a>
+                </template>
+                <span x-show="!lead.emails || !lead.emails.length" style="color: var(--text-muted)">&mdash;</span>
+              </td>
+              <td class="px-4 py-3 cursor-pointer" @click="window.location = '/leads/' + lead.id">
+                <span x-show="lead.has_website" class="text-xs font-medium" style="color: var(--success)">Yes</span>
+                <span x-show="!lead.has_website" class="badge" style="background: var(--danger-soft); color: var(--danger)">None</span>
+              </td>
+              <td class="px-4 py-3" @click.stop>
+                <select :value="lead.status" @change="updateStatus(lead, $event.target.value)" class="input-field !py-1 !text-xs !w-auto">
+                  {% for s in statuses %}
+                  <option value="{{ s }}">{{ s.replace('_', ' ') }}</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="px-4 py-3" @click.stop>
+                <button @click="deleteLead(lead)" class="opacity-50 hover:opacity-100" title="Delete" style="color: var(--danger)">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                </button>
+              </td>
+            </tr>
+          </template>
+          <template x-if="leads.length === 0 && !loading">
+            <tr>
+              <td colspan="9" class="px-4 py-16 text-center">
+                <svg class="w-10 h-10 mx-auto mb-2" style="color: var(--text-muted)" fill="none" stroke="currentColor" stroke-width="1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <p class="text-sm" style="color: var(--text-muted)">No leads match these filters. <a href="/discover" class="text-accent hover:underline">Discover some!</a></p>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pipelineApp() {
+  return {
+    leads: [], loading: true, statusCounts: {}, totalCount: 0,
+    selected: [], comboFilter: '',
+    filters: {
+      q: '', status: '', has_website: '', has_phone: '', has_email: '', city: '',
+    },
+
+    async init() {
+      // honor query-string deep links from dashboard widgets
+      const p = new URLSearchParams(window.location.search);
+      for (const k of ['q','status','has_website','has_phone','has_email','city']) {
+        if (p.has(k)) this.filters[k] = p.get(k);
+      }
+      await this.fetchLeads();
+      await this.fetchStats();
+    },
+
+    async fetchLeads() {
+      this.loading = true;
+      const params = new URLSearchParams();
+      for (const [k, v] of Object.entries(this.filters)) { if (v) params.set(k, v); }
+      try { this.leads = await api(`/leads/api/list?${params}`); } catch(e) {}
+      this.loading = false;
+    },
+
+    async fetchStats() {
+      try {
+        const data = await api('/leads/api/stats');
+        this.statusCounts = data.by_status || {};
+        this.totalCount = data.total || 0;
+      } catch(e) {}
+    },
+
+    toggleFilter(key, val) {
+      this.filters[key] = this.filters[key] === val ? '' : val;
+      this.comboFilter = '';
+      this.fetchLeads();
+    },
+
+    setComboFilter(name) {
+      if (this.comboFilter === name) {
+        this.comboFilter = '';
+        this.filters.has_email = '';
+        this.filters.has_phone = '';
+        this.filters.has_website = '';
+      } else {
+        this.comboFilter = name;
+        this.filters.has_website = 'false';
+        if (name === 'email_no_site') { this.filters.has_email = 'true'; this.filters.has_phone = ''; }
+        if (name === 'phone_no_site') { this.filters.has_phone = 'true'; this.filters.has_email = ''; }
+      }
+      this.fetchLeads();
+    },
+
+    resetFilters() {
+      this.filters = { q: '', status: '', has_website: '', has_phone: '', has_email: '', city: '' };
+      this.comboFilter = '';
+      this.fetchLeads();
+    },
+
+    toggleSelect(id) {
+      const i = this.selected.indexOf(id);
+      if (i >= 0) this.selected.splice(i, 1); else this.selected.push(id);
+    },
+    toggleAll() {
+      if (this.selected.length === this.leads.length) this.selected = [];
+      else this.selected = this.leads.map(l => l.id);
+    },
+
+    async updateStatus(lead, newStatus) {
+      const prev = lead.status;
+      lead.status = newStatus;
+      try {
+        await api(`/leads/api/${lead.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: newStatus }),
+        });
+        toast(`Status → ${newStatus.replace('_',' ')}`, 'success');
+        this.fetchStats();
+      } catch (e) {
+        lead.status = prev;
+      }
+    },
+
+    async deleteLead(lead) {
+      if (!confirm(`Delete "${lead.business_name}"?`)) return;
+      try {
+        await api(`/leads/api/${lead.id}`, { method: 'DELETE' });
+        this.leads = this.leads.filter(l => l.id !== lead.id);
+        this.selected = this.selected.filter(id => id !== lead.id);
+        toast('Lead deleted', 'success');
+        this.fetchStats();
+      } catch(e) {}
+    },
+
+    async bulkDelete() {
+      if (this.selected.length === 0) return;
+      if (!confirm(`Delete ${this.selected.length} leads?`)) return;
+      try {
+        await api('/leads/api/bulk-delete', {
+          method: 'POST',
+          body: JSON.stringify({ lead_ids: this.selected }),
+        });
+        const ids = new Set(this.selected);
+        this.leads = this.leads.filter(l => !ids.has(l.id));
+        this.selected = [];
+        toast('Leads deleted', 'success');
+        this.fetchStats();
+      } catch(e) {}
+    },
+  };
+}
+</script>
+{% endblock %}

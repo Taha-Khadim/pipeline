@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div x-data="settingsApp()">
+  <div class="mb-8">
+    <h1 class="text-2xl font-bold" style="color: var(--text)">Settings</h1>
+    <p class="mt-1 text-sm" style="color: var(--text-muted)">
+      Configure your AI key and personalize generated outreach. Saved locally — never sent anywhere.
+    </p>
+  </div>
+
+  <div class="space-y-6 max-w-3xl">
+
+    <!-- API key card -->
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-semibold" style="color: var(--text)">Google Gemini API Key</h2>
+          <p class="text-xs mt-0.5" style="color: var(--text-muted)">
+            Free at
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="underline hover:opacity-80" style="color: var(--accent)">aistudio.google.com/app/apikey</a>
+            — no credit card required.
+          </p>
+        </div>
+        <span class="badge"
+              :style="googleKeySet ? 'background: var(--success-soft); color: var(--success)' : 'background: var(--danger-soft); color: var(--danger)'"
+              x-text="googleKeySet ? 'Configured' : 'Not set'"></span>
+      </div>
+      <input type="text" class="input-field font-mono text-sm" x-model="googleApiKey"
+             placeholder="AIzaSy...">
+      <div class="flex gap-2 mt-3">
+        <button @click="save()" :disabled="saving" class="btn-primary">
+          <span x-show="!saving">Save key</span>
+          <span x-show="saving">Saving…</span>
+        </button>
+        <button @click="testGemini()" :disabled="testing || !googleKeySet" class="btn-secondary">
+          <span x-show="!testing">Test connection</span>
+          <span x-show="testing">Testing…</span>
+        </button>
+      </div>
+      <div x-show="testResult" x-transition class="mt-3 text-xs px-3 py-2 rounded-lg"
+           :style="testOk ? 'background: var(--success-soft); color: var(--success)' : 'background: var(--danger-soft); color: var(--danger)'"
+           x-text="testResult"></div>
+    </div>
+
+    <!-- Sender info card -->
+    <div class="card">
+      <h2 class="text-base font-semibold mb-1" style="color: var(--text)">Your Sender Info</h2>
+      <p class="text-xs mb-4" style="color: var(--text-muted)">
+        Used to personalize generated emails, scripts, and DMs.
+      </p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Your Name</label>
+          <input type="text" class="input-field" x-model="senderName" placeholder="Jane Doe">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Email</label>
+          <input type="email" class="input-field" x-model="senderEmail" placeholder="hello@yourcompany.com">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Company / Brand</label>
+          <input type="text" class="input-field" x-model="senderCompany" placeholder="Lumora Code">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Website</label>
+          <input type="text" class="input-field" x-model="senderWebsite" placeholder="lumoracode.com">
+        </div>
+      </div>
+      <div class="mt-4">
+        <button @click="save()" :disabled="saving" class="btn-primary">
+          <span x-show="!saving">Save sender info</span>
+          <span x-show="saving">Saving…</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Help card -->
+    <div class="card" style="background: var(--bg-surface-raised)">
+      <h2 class="text-base font-semibold mb-2" style="color: var(--text)">How this works</h2>
+      <ol class="text-sm space-y-2 list-decimal pl-5" style="color: var(--text-secondary)">
+        <li>Lead discovery (Google Maps + Bing Local) does <strong>NOT</strong> require an API key — it uses headless browsing.</li>
+        <li>The Gemini key is only used for the optional AI features: research, lead scoring, email/DM/call-script generation.</li>
+        <li>All data is stored locally on this machine. Nothing is uploaded.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function settingsApp() {
+  return {
+    googleApiKey: '{{ google_api_key_preview|e }}',
+    googleKeySet: {{ 'true' if google_api_key_set else 'false' }},
+    senderName: '{{ sender_name|e }}',
+    senderCompany: '{{ sender_company|e }}',
+    senderWebsite: '{{ sender_website|e }}',
+    senderEmail: '{{ sender_email|e }}',
+    saving: false, testing: false,
+    testResult: '', testOk: false,
+
+    async save() {
+      this.saving = true;
+      try {
+        await api('/settings/save', {
+          method: 'POST',
+          body: JSON.stringify({
+            google_api_key: this.googleApiKey,
+            sender_name: this.senderName,
+            sender_company: this.senderCompany,
+            sender_website: this.senderWebsite,
+            sender_email: this.senderEmail,
+          }),
+        });
+        toast('Settings saved', 'success');
+        const status = await api('/settings/status');
+        this.googleKeySet = status.google_api_key_set;
+      } catch (e) { /* api() already toasts */ }
+      this.saving = false;
+    },
+
+    async testGemini() {
+      this.testing = true; this.testResult = '';
+      try {
+        const r = await api('/settings/test-gemini', { method: 'POST' });
+        this.testOk = !!r.ok;
+        this.testResult = r.ok ? `✓ Gemini responded: "${r.reply}"` : `✗ ${r.error}`;
+      } catch (e) {
+        this.testOk = false;
+        this.testResult = '✗ Could not reach the API';
+      }
+      this.testing = false;
+    }
+  };
+}
+</script>
+{% endblock %}
