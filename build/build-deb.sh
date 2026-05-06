@@ -8,13 +8,21 @@
 #   build/dist/lumora-pipeline_<version>_amd64.deb
 #
 # Requires: python3.10+, dpkg-deb, fakeroot, pyinstaller (in venv).
+#
+# Optional bundled defaults (baked into the binary):
+#   LUMORA_BUNDLED_DATABASE_URL     full Postgres URL (default: built-in Supabase pooler)
+#   LUMORA_BUNDLED_SUPABASE_URL     Supabase project URL (REST API base)
+#   LUMORA_BUNDLED_SUPABASE_KEY     anon/publishable key
+#   LUMORA_BUNDLED_DB_PASSWORD      Supabase DB password (only needed if you let the
+#                                   app derive the URL instead of providing DATABASE_URL)
+#   LUMORA_BUNDLED_GOOGLE_API_KEY   pre-fill Gemini key
 
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-VERSION="${VERSION:-1.0.2}"
+VERSION="${VERSION:-1.0.4}"
 ARCH="${ARCH:-amd64}"
 PKG_NAME="lumora-pipeline"
 DIST="$ROOT/build/dist"
@@ -34,6 +42,22 @@ source "$ROOT/venv/bin/activate"
 echo "==> Installing build deps in venv"
 pip install --quiet --upgrade pip
 pip install --quiet --upgrade pyinstaller
+
+# ---------------------------------------------------------------------------
+#  Bake bundled defaults into app/_bundled_defaults.py before PyInstaller
+#  reads it. Restored on EXIT so re-running this script (or running from
+#  source after) doesn't pin secrets into the dev tree.
+#
+#  build/_bake_defaults.py reads its values from LUMORA_BUNDLED_* env vars
+#  and falls back to the public Supabase pooler URL + publishable key, so
+#  by default the produced artifact is fully self-contained.
+# ---------------------------------------------------------------------------
+DEFAULTS_FILE="$ROOT/app/_bundled_defaults.py"
+DEFAULTS_BACKUP="$DEFAULTS_FILE.bak.$$"
+cp "$DEFAULTS_FILE" "$DEFAULTS_BACKUP"
+trap 'mv "$DEFAULTS_BACKUP" "$DEFAULTS_FILE" 2>/dev/null || true' EXIT
+echo "==> Embedding bundled defaults"
+python "$ROOT/build/_bake_defaults.py"
 
 echo "==> Running PyInstaller"
 rm -rf "$PYI_OUT" build/build "$ROOT/dist"

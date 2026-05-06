@@ -116,7 +116,7 @@ async def log_outreach(request: Request, db: AsyncSession = Depends(get_db)):
 
     if lead.status == LeadStatus.FOUND or lead.status == LeadStatus.RESEARCHED:
         lead.status = LeadStatus.CONTACTED
-    lead.updated_at = datetime.now(timezone.utc)
+    lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
     await db.commit()
     return {"status": "logged", "id": log_entry.id}
@@ -159,6 +159,6 @@ async def _research_lead_task(lead_id: int):
         if lead.status == LeadStatus.FOUND:
             lead.status = LeadStatus.RESEARCHED
 
-        lead.updated_at = datetime.now(timezone.utc)
+        lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await db.commit()
         log.info("Research complete for lead %d", lead_id)

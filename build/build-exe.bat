@@ -26,6 +26,21 @@ echo ==^> Updating build deps
 pip install --quiet --upgrade pip
 pip install --quiet --upgrade pyinstaller
 
+REM ---------------------------------------------------------------------
+REM  Bake bundled Supabase defaults (URL, anon key, optional DB password
+REM  + Gemini key) into app\_bundled_defaults.py before PyInstaller reads
+REM  it. Restored after the build via the .bak file.
+REM ---------------------------------------------------------------------
+copy /y app\_bundled_defaults.py app\_bundled_defaults.py.bak >nul
+
+if not defined LUMORA_BUNDLED_SUPABASE_URL set LUMORA_BUNDLED_SUPABASE_URL=https://ailespxrkdfvureeleox.supabase.co
+if not defined LUMORA_BUNDLED_SUPABASE_KEY set LUMORA_BUNDLED_SUPABASE_KEY=sb_publishable_n5-DKZgPSLAoDN53NsdFdw_GLPLbhMF
+if not defined LUMORA_BUNDLED_DB_PASSWORD set LUMORA_BUNDLED_DB_PASSWORD=
+if not defined LUMORA_BUNDLED_GOOGLE_API_KEY set LUMORA_BUNDLED_GOOGLE_API_KEY=
+
+echo ==^> Embedding bundled defaults
+python build\_bake_defaults.py || exit /b 1
+
 echo ==^> Running PyInstaller
 rmdir /s /q build\dist-pyinstaller 2>nul
 rmdir /s /q build\build 2>nul
@@ -54,6 +69,9 @@ if errorlevel 1 (
 )
 mkdir build\dist 2>nul
 iscc build\installer.iss || exit /b 1
+
+REM Restore the dev-tree _bundled_defaults.py so secrets don't linger.
+move /y app\_bundled_defaults.py.bak app\_bundled_defaults.py >nul
 
 echo.
 echo Built: build\dist\lumora-pipeline-setup.exe

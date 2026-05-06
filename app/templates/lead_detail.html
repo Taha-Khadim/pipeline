@@ -3,12 +3,16 @@
 
 {% block content %}
 <div x-data="leadDetailApp()">
-  <!-- Breadcrumb -->
+  <!-- Breadcrumb + actions -->
   <div class="flex items-center justify-between mb-6">
     <div class="flex items-center gap-2 text-sm">
       <a href="/leads" style="color: var(--text-muted)" class="hover:underline">Pipeline</a>
       <span style="color: var(--text-muted)">/</span>
       <span style="color: var(--text)">{{ lead.business_name }}</span>
+      <span class="ml-2 text-xs px-2 py-0.5 rounded transition-opacity"
+            :class="saveState === 'saving' ? 'opacity-100' : (saveState === 'saved' ? 'opacity-80' : (saveState === 'error' ? 'opacity-100' : 'opacity-0'))"
+            :style="saveState === 'error' ? 'background: var(--danger-soft); color: var(--danger)' : 'background: var(--accent-soft); color: var(--accent-text)'"
+            x-text="saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save failed' : ''"></span>
     </div>
     <div class="flex gap-2">
       <button @click="enrichLead()" :disabled="enriching" class="btn-secondary">
@@ -18,7 +22,7 @@
             Enrich
           </span>
         </template>
-        <template x-if="enriching"><span>Enriching...</span></template>
+        <template x-if="enriching"><span>Enriching…</span></template>
       </button>
       <button @click="researchLead()" :disabled="researching" class="btn-secondary">
         <template x-if="!researching">
@@ -27,7 +31,7 @@
             AI Research
           </span>
         </template>
-        <template x-if="researching"><span>Researching...</span></template>
+        <template x-if="researching"><span>Researching…</span></template>
       </button>
       <a href="/outreach?lead_id={{ lead.id }}" class="btn-primary">Generate Outreach</a>
     </div>
@@ -36,7 +40,7 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Left column -->
     <div class="lg:col-span-2 space-y-6">
-      <!-- Business info -->
+      <!-- Business header + status -->
       <div class="card">
         <div class="flex items-start justify-between mb-5">
           <div>
@@ -74,39 +78,25 @@
         </div>
       </div>
 
-      <!-- Contact info -->
+      <!-- Editable contact info -->
       <div class="card">
         <h2 class="text-sm font-semibold mb-4" style="color: var(--text)">Contact Information</h2>
-        <div class="space-y-3 text-sm">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--bg-surface-raised)">
-              <svg class="w-4 h-4" style="color: var(--text-muted)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"/></svg>
-            </div>
-            <span style="color: var(--text)">{{ lead.phone or 'No phone found' }}</span>
+        <div class="space-y-4 text-sm">
+          <div>
+            <label class="text-xs uppercase tracking-wide font-medium block mb-1" style="color: var(--text-muted)">Phone</label>
+            <input type="text" x-model="phone" @input.debounce.700ms="saveField('phone', phone)"
+                   class="input-field" placeholder="+1 555 123 4567">
           </div>
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5" style="background: var(--bg-surface-raised)">
-              <svg class="w-4 h-4" style="color: var(--text-muted)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-            </div>
-            <div>
-              {% if lead.emails %}
-                {% for email in lead.emails %}
-                <a href="mailto:{{ email }}" class="text-accent hover:underline block">{{ email }}</a>
-                {% endfor %}
-              {% else %}
-                <span style="color: var(--text-muted)">No emails found &mdash; <button @click="enrichLead()" class="text-accent hover:underline">Enrich to find</button></span>
-              {% endif %}
-            </div>
+          <div>
+            <label class="text-xs uppercase tracking-wide font-medium block mb-1" style="color: var(--text-muted)">Emails (one per line)</label>
+            <textarea x-model="emailsText" @input.debounce.700ms="saveEmails()"
+                      class="input-field font-mono text-xs" rows="3"
+                      placeholder="contact@example.com"></textarea>
           </div>
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background: var(--bg-surface-raised)">
-              <svg class="w-4 h-4" style="color: var(--text-muted)" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/></svg>
-            </div>
-            {% if lead.website_url %}
-              <a href="{{ lead.website_url }}" target="_blank" class="text-accent hover:underline">{{ lead.website_url }}</a>
-            {% else %}
-              <span class="badge" style="background: var(--danger-soft); color: var(--danger)">No Website</span>
-            {% endif %}
+          <div>
+            <label class="text-xs uppercase tracking-wide font-medium block mb-1" style="color: var(--text-muted)">Website URL</label>
+            <input type="url" x-model="websiteUrl" @input.debounce.700ms="saveWebsite()"
+                   class="input-field" placeholder="https://example.com">
           </div>
         </div>
 
@@ -200,15 +190,15 @@
     <div class="space-y-6">
       <div class="card">
         <h3 class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--text-muted)">Owner / Contact Name</h3>
-        <input type="text" x-model="ownerName" @change="saveField('owner_name', ownerName)" class="input-field" placeholder="Enter owner name...">
+        <input type="text" x-model="ownerName" @input.debounce.700ms="saveField('owner_name', ownerName)" class="input-field" placeholder="Enter owner name…">
       </div>
       <div class="card">
         <h3 class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--text-muted)">Notes</h3>
-        <textarea x-model="notes" @change="saveField('notes', notes)" class="input-field" rows="6" placeholder="Add notes about this lead..."></textarea>
+        <textarea x-model="notes" @input.debounce.700ms="saveField('notes', notes)" class="input-field" rows="6" placeholder="Add notes about this lead…"></textarea>
       </div>
       <div class="card">
         <h3 class="text-xs font-medium uppercase tracking-wide mb-2" style="color: var(--text-muted)">Next Action</h3>
-        <input type="text" x-model="nextAction" @change="saveField('next_action', nextAction)" class="input-field" placeholder="e.g. Follow up call Monday">
+        <input type="text" x-model="nextAction" @input.debounce.700ms="saveField('next_action', nextAction)" class="input-field" placeholder="e.g. Follow up call Monday">
       </div>
 
       <div class="card">
@@ -220,12 +210,12 @@
             Google Maps
           </a>
           {% endif %}
-          {% if lead.website_url %}
-          <a href="{{ lead.website_url }}" target="_blank" class="flex items-center gap-2 text-sm hover:underline" style="color: var(--text-secondary)">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
-            Website
-          </a>
-          {% endif %}
+          <template x-if="websiteUrl">
+            <a :href="websiteUrl" target="_blank" class="flex items-center gap-2 text-sm hover:underline" style="color: var(--text-secondary)">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+              Website
+            </a>
+          </template>
           <a href="https://www.linkedin.com/search/results/all/?keywords={{ lead.business_name|urlencode }}+{{ lead.city|urlencode }}" target="_blank" class="flex items-center gap-2 text-sm hover:underline" style="color: var(--text-secondary)">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
             Search LinkedIn
@@ -234,7 +224,10 @@
       </div>
 
       <div class="card" style="border-color: rgba(220,38,38,0.15)">
-        <button @click="if(confirm('Delete this lead permanently?')) deleteLead()" class="text-sm font-medium" style="color: var(--danger)">Delete Lead</button>
+        <button @click="confirmDelete()" :disabled="deleting" class="text-sm font-medium" style="color: var(--danger)">
+          <span x-show="!deleting">Delete Lead</span>
+          <span x-show="deleting">Deleting…</span>
+        </button>
       </div>
     </div>
   </div>
@@ -243,46 +236,122 @@
 
 {% block scripts %}
 <script>
-function leadDetailApp() {
-  return {
-    leadId: {{ lead.id }},
-    status: '{{ lead.status.value }}',
-    ownerName: '{{ lead.owner_name or "" }}',
-    notes: {{ lead.notes|tojson if lead.notes else '""' }},
-    nextAction: '{{ lead.next_action or "" }}',
-    enriching: false, researching: false,
+// Initial state is JSON-encoded by Jinja so values containing quotes,
+// backslashes, or newlines (e.g. "O'Brien Dental") don't break the JS.
+window.__leadInitial = {{ {
+  'id': lead.id,
+  'status': lead.status.value,
+  'owner_name': lead.owner_name or '',
+  'phone': lead.phone or '',
+  'website_url': lead.website_url or '',
+  'emails': lead.emails or [],
+  'notes': lead.notes or '',
+  'next_action': lead.next_action or ''
+} | tojson }};
 
-    async saveField(field, value) {
-      try {
-        await api(`/leads/api/${this.leadId}`, {
-          method: 'PUT',
-          body: JSON.stringify({ [field]: value }),
-        });
-        toast('Saved', 'success');
-      } catch(e) {}
+function leadDetailApp() {
+  const init = window.__leadInitial || {};
+  return {
+    leadId: init.id,
+    status: init.status || 'FOUND',
+    ownerName: init.owner_name || '',
+    phone: init.phone || '',
+    websiteUrl: init.website_url || '',
+    emailsText: (init.emails || []).join('\n'),
+    notes: init.notes || '',
+    nextAction: init.next_action || '',
+    enriching: false, researching: false, deleting: false,
+    saveState: '',  // '', 'saving', 'saved', 'error'
+    _saveTimer: null,
+
+    _flash(state) {
+      this.saveState = state;
+      if (state === 'saved' || state === 'error') {
+        clearTimeout(this._saveTimer);
+        this._saveTimer = setTimeout(() => { this.saveState = ''; }, 2000);
+      }
     },
-    async updateStatus() {
+
+    async _put(payload) {
+      this._flash('saving');
       try {
         const r = await api(`/leads/api/${this.leadId}`, {
           method: 'PUT',
-          body: JSON.stringify({ status: this.status }),
+          body: JSON.stringify(payload),
         });
-        toast(`Status → ${(r.lead_status || this.status).replace('_',' ')}`, 'success');
-      } catch(e) {}
+        this._flash('saved');
+        return r;
+      } catch (e) {
+        this._flash('error');
+        throw e;
+      }
     },
+
+    async saveField(field, value) {
+      try { await this._put({ [field]: value }); } catch (e) {}
+    },
+
+    async saveEmails() {
+      const emails = this.emailsText
+        .split(/[\n,;]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      try { await this._put({ emails }); } catch (e) {}
+    },
+
+    async saveWebsite() {
+      const u = (this.websiteUrl || '').trim();
+      try {
+        await this._put({
+          website_url: u,
+          has_website: !!u,
+        });
+      } catch (e) {}
+    },
+
+    async updateStatus() {
+      try {
+        const r = await this._put({ status: this.status });
+        toast(`Status \u2192 ${(r.lead_status || this.status).replace('_',' ')}`, 'success');
+      } catch (e) {}
+    },
+
     async enrichLead() {
       this.enriching = true;
-      try { await api(`/leads/api/${this.leadId}/enrich`, { method: 'POST' }); toast('Enrichment started — refresh in a few seconds', 'success'); setTimeout(() => location.reload(), 8000); } catch(e) {}
+      try {
+        await api(`/leads/api/${this.leadId}/enrich`, { method: 'POST' });
+        toast('Enrichment started \u2014 refresh in a few seconds', 'success');
+        setTimeout(() => location.reload(), 8000);
+      } catch (e) {}
       this.enriching = false;
     },
+
     async researchLead() {
       this.researching = true;
-      try { await api(`/outreach/api/research/${this.leadId}`, { method: 'POST' }); toast('AI research started — refresh in a few seconds', 'success'); setTimeout(() => location.reload(), 10000); } catch(e) {}
+      try {
+        await api(`/outreach/api/research/${this.leadId}`, { method: 'POST' });
+        toast('AI research started \u2014 refresh in a few seconds', 'success');
+        setTimeout(() => location.reload(), 10000);
+      } catch (e) {}
       this.researching = false;
     },
+
+    confirmDelete() {
+      if (this.deleting) return;
+      if (!confirm('Delete this lead permanently?')) return;
+      this.deleteLead();
+    },
+
     async deleteLead() {
-      try { await api(`/leads/api/${this.leadId}`, { method: 'DELETE' }); toast('Lead deleted', 'success'); setTimeout(() => window.location = '/leads', 500); } catch(e) {}
-    }
+      this.deleting = true;
+      try {
+        await api(`/leads/api/${this.leadId}`, { method: 'DELETE' });
+        toast('Lead deleted', 'success');
+        setTimeout(() => { window.location = '/leads'; }, 400);
+      } catch (e) {
+        this.deleting = false;
+      }
+    },
   };
 }
 </script>

@@ -16,6 +16,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+def _utcnow() -> datetime:
+    """Naive UTC timestamp.
+
+    The Postgres schema (scripts/supabase_migration.sql) declares
+    `TIMESTAMP WITHOUT TIME ZONE` columns, and asyncpg refuses to bind
+    timezone-aware values to those, so we strip tzinfo here.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 class LeadStatus(str, enum.Enum):
     FOUND = "FOUND"
     RESEARCHED = "RESEARCHED"
@@ -41,10 +51,6 @@ class ScrapeJobStatus(str, enum.Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
-
-
-def _utcnow():
-    return datetime.now(timezone.utc)
 
 
 class Lead(Base):

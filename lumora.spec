@@ -22,10 +22,13 @@ datas = [
     (str(HERE / "app" / "templates"), "app/templates"),
     (str(HERE / "app" / "static"),    "app/static"),
     (str(HERE / "favicon.svg"),       "."),
+    (str(HERE / "scripts" / "supabase_migration.sql"), "scripts"),
 ]
 
 hiddenimports = [
-    "aiosqlite",
+    "asyncpg",
+    "asyncpg.protocol",
+    "asyncpg.protocol.protocol",
     "uvicorn.logging",
     "uvicorn.loops",
     "uvicorn.loops.auto",
@@ -55,6 +58,7 @@ hiddenimports = [
     "app.ai._gemini",
     "app.ai.research_agent",
     "app.ai.outreach_gen",
+    "app._bundled_defaults",
 ]
 
 a = Analysis(

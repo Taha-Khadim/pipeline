@@ -168,7 +168,7 @@ async def update_lead(lead_id: int, request: Request, db: AsyncSession = Depends
     if "social_links" in body:
         lead.social_links = body["social_links"]
 
-    lead.updated_at = datetime.now(timezone.utc)
+    lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.commit()
     await db.refresh(lead)
     return {
@@ -265,7 +265,7 @@ async def _enrich_lead_task(lead_id: int):
             lead.website_issues = analysis.issues
             lead.screenshot_path = analysis.screenshot_path
 
-        lead.updated_at = datetime.now(timezone.utc)
+        lead.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         await db.commit()
         log.info("Enriched lead %d: %s", lead_id, lead.business_name)
 

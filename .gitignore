@@ -8,7 +8,6 @@ venv/
 env/
 .venv/
 
-.env
 *.db
 *.sqlite
 *.sqlite3
@@ -24,10 +23,14 @@ build/.deb-staging*/
 dist/
 *.spec~
 
-.vscode/
+# Build pipeline restores this from a temp .bak file; ignore stragglers.
+app/_bundled_defaults.py.bak*
+
 .idea/
 .DS_Store
 *.swp
 *.swo
 
 /tmp/
+config.bat
+node_modules

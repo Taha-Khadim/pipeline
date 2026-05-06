@@ -6,11 +6,96 @@
   <div class="mb-8">
     <h1 class="text-2xl font-bold" style="color: var(--text)">Settings</h1>
     <p class="mt-1 text-sm" style="color: var(--text-muted)">
-      Configure your AI key and personalize generated outreach. Saved locally — never sent anywhere.
+      AI key, sender info, and cloud database connection. Saved on this device.
     </p>
   </div>
 
   <div class="space-y-6 max-w-3xl">
+
+    <!-- Database card -->
+    <div class="card">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-base font-semibold" style="color: var(--text)">Supabase Database</h2>
+          <p class="text-xs mt-0.5" style="color: var(--text-muted)">
+            Cloud Postgres — every lead, outreach, and scrape job is read
+            from / written to your Supabase project. The bundle ships
+            pre-configured; only edit these to point at a different project.
+          </p>
+        </div>
+        <span class="badge"
+              :style="dbHealthy ? 'background: var(--success-soft); color: var(--success)' : 'background: var(--warning-soft); color: var(--warning)'"
+              x-text="dbHealthy ? 'Supabase Postgres' : 'Connecting…'"></span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Project URL</label>
+          <input type="text" class="input-field font-mono text-xs" x-model="supabaseUrl"
+                 placeholder="https://abcdef.supabase.co">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">Anon / Publishable Key</label>
+          <input type="text" class="input-field font-mono text-xs" x-model="supabaseAnonKey"
+                 placeholder="sb_publishable_…">
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium mb-1.5 uppercase tracking-wide" style="color: var(--text-muted)">
+            Database Password
+            <span class="text-[10px] normal-case font-normal" style="color: var(--text-muted)">
+              · Supabase dashboard → Settings → Database → Database password
+            </span>
+          </label>
+          <input type="password" class="input-field font-mono text-xs" x-model="supabaseDbPassword"
+                 :placeholder="passwordSet ? '•••••••• (saved — type a new one to replace)' : 'Paste your Supabase database password'">
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mt-3">
+        <button @click="saveDatabase()" :disabled="dbSaving" class="btn-primary">
+          <span x-show="!dbSaving">Save &amp; switch to Supabase</span>
+          <span x-show="dbSaving">Saving…</span>
+        </button>
+        <button @click="testDatabase()" :disabled="dbTesting" class="btn-secondary">
+          <span x-show="!dbTesting">Test connection</span>
+          <span x-show="dbTesting">Testing…</span>
+        </button>
+        <a href="/settings/migration-sql" target="_blank" class="btn-ghost text-xs">
+          View migration SQL
+        </a>
+      </div>
+
+      <div x-show="dbResult" x-transition class="mt-3 text-xs px-3 py-2 rounded-lg"
+           :style="dbOk ? 'background: var(--success-soft); color: var(--success)' : 'background: var(--danger-soft); color: var(--danger)'"
+           x-text="dbResult"></div>
+
+      <p class="text-[11px] mt-3" style="color: var(--text-muted)">
+        SQLite is no longer supported &mdash; the app reads and writes
+        everything against the Supabase project above.
+      </p>
+
+      <details class="mt-4 text-xs" style="color: var(--text-secondary)">
+        <summary class="cursor-pointer font-medium" style="color: var(--text)">First-time setup checklist</summary>
+        <ol class="mt-2 space-y-1.5 list-decimal pl-5">
+          <li>In Supabase, open the SQL editor and click <a href="/settings/migration-sql" target="_blank" class="text-accent hover:underline">View migration SQL</a> from this app. Paste it into the editor and click <em>Run</em> — it creates the tables.</li>
+          <li>Open Supabase → Settings → Database → Database password. Click <em>Reset password</em> if you don't remember it.</li>
+          <li>Paste it above and hit <strong>Save &amp; switch to Supabase</strong>. The app reloads its connection on the spot.</li>
+        </ol>
+      </details>
+
+      <details class="mt-2 text-xs" style="color: var(--text-secondary)">
+        <summary class="cursor-pointer font-medium" style="color: var(--text)">Advanced: custom connection URL</summary>
+        <p class="mt-2">
+          Use this if your network is IPv4-only (the direct
+          <code>db.&lt;ref&gt;.supabase.co:5432</code> connection is IPv6-only since 2024).
+          Grab the <em>Connection pooling</em> URL from Supabase → Settings → Database
+          (looks like <code>aws-0-…pooler.supabase.com:6543</code>) and paste it here.
+          Leave blank to auto-derive from the project URL + password.
+        </p>
+        <input type="text" class="input-field font-mono text-xs mt-2" x-model="databaseUrl"
+               placeholder="postgresql+asyncpg://postgres.PROJECT_REF:PASSWORD@aws-0-…pooler.supabase.com:6543/postgres">
+      </details>
+    </div>
 
     <!-- API key card -->
     <div class="card">
@@ -80,9 +165,10 @@
     <div class="card" style="background: var(--bg-surface-raised)">
       <h2 class="text-base font-semibold mb-2" style="color: var(--text)">How this works</h2>
       <ol class="text-sm space-y-2 list-decimal pl-5" style="color: var(--text-secondary)">
-        <li>Lead discovery (Google Maps + Bing Local) does <strong>NOT</strong> require an API key — it uses headless browsing.</li>
-        <li>The Gemini key is only used for the optional AI features: research, lead scoring, email/DM/call-script generation.</li>
-        <li>All data is stored locally on this machine. Nothing is uploaded.</li>
+        <li>Lead discovery (Google Maps + Bing Local + OpenStreetMap) does <strong>not</strong> need an API key.</li>
+        <li>The Gemini key is only for the optional AI features: research, lead scoring, email/DM/call-script generation.</li>
+        <li>Without Supabase the app stores everything in a local SQLite file under your home directory.</li>
+        <li>With Supabase configured, every lead/outreach record syncs to your cloud project — install Lumora on a new machine and pick up where you left off.</li>
       </ol>
     </div>
   </div>
@@ -91,16 +177,40 @@
 
 {% block scripts %}
 <script>
+window.__settingsInitial = {{ {
+  'google_api_key_preview': google_api_key_preview,
+  'google_api_key_set': google_api_key_set,
+  'sender_name': sender_name,
+  'sender_company': sender_company,
+  'sender_website': sender_website,
+  'sender_email': sender_email,
+  'supabase_url': supabase_url,
+  'supabase_anon_key_preview': supabase_anon_key_preview,
+  'supabase_password_set': supabase_password_set,
+  'database_backend': database_backend,
+  'database_url': database_url_explicit,
+  'db_healthy': db_healthy
+} | tojson }};
+
 function settingsApp() {
+  const init = window.__settingsInitial || {};
   return {
-    googleApiKey: '{{ google_api_key_preview|e }}',
-    googleKeySet: {{ 'true' if google_api_key_set else 'false' }},
-    senderName: '{{ sender_name|e }}',
-    senderCompany: '{{ sender_company|e }}',
-    senderWebsite: '{{ sender_website|e }}',
-    senderEmail: '{{ sender_email|e }}',
+    googleApiKey: init.google_api_key_preview || '',
+    googleKeySet: !!init.google_api_key_set,
+    senderName: init.sender_name || '',
+    senderCompany: init.sender_company || '',
+    senderWebsite: init.sender_website || '',
+    senderEmail: init.sender_email || '',
+    supabaseUrl: init.supabase_url || '',
+    supabaseAnonKey: init.supabase_anon_key_preview || '',
+    supabaseDbPassword: '',
+    databaseUrl: init.database_url || '',
+    passwordSet: !!init.supabase_password_set,
+    dbHealthy: !!init.db_healthy,
     saving: false, testing: false,
+    dbSaving: false, dbTesting: false,
     testResult: '', testOk: false,
+    dbResult: '', dbOk: false,
 
     async save() {
       this.saving = true;
@@ -118,7 +228,7 @@ function settingsApp() {
         toast('Settings saved', 'success');
         const status = await api('/settings/status');
         this.googleKeySet = status.google_api_key_set;
-      } catch (e) { /* api() already toasts */ }
+      } catch (e) {}
       this.saving = false;
     },
 
@@ -127,12 +237,56 @@ function settingsApp() {
       try {
         const r = await api('/settings/test-gemini', { method: 'POST' });
         this.testOk = !!r.ok;
-        this.testResult = r.ok ? `✓ Gemini responded: "${r.reply}"` : `✗ ${r.error}`;
+        this.testResult = r.ok ? `\u2713 Gemini responded: "${r.reply}"` : `\u2717 ${r.error}`;
       } catch (e) {
         this.testOk = false;
-        this.testResult = '✗ Could not reach the API';
+        this.testResult = '\u2717 Could not reach the API';
       }
       this.testing = false;
+    },
+
+    async saveDatabase() {
+      this.dbSaving = true; this.dbResult = '';
+      try {
+        const r = await api('/settings/save-database', {
+          method: 'POST',
+          body: JSON.stringify({
+            supabase_url: this.supabaseUrl,
+            supabase_anon_key: this.supabaseAnonKey,
+            supabase_db_password: this.supabaseDbPassword,
+            database_url: this.databaseUrl,
+          }),
+        });
+        this.dbBackend = r.database_backend;
+        this.passwordSet = !!r.supabase_password_set;
+        this.supabaseDbPassword = '';
+        this.dbOk = true;
+        this.dbResult = `\u2713 Saved. Backend: ${r.database_backend === 'postgres' ? 'Supabase Postgres' : 'local SQLite'}.`;
+        toast('Database settings saved', 'success');
+      } catch (e) {
+        this.dbOk = false;
+        this.dbResult = '\u2717 Could not save database settings.';
+      }
+      this.dbSaving = false;
+    },
+
+    async testDatabase() {
+      this.dbTesting = true; this.dbResult = '';
+      try {
+        const r = await api('/settings/test-database', {
+          method: 'POST',
+          body: JSON.stringify({
+            supabase_url: this.supabaseUrl,
+            supabase_db_password: this.supabaseDbPassword,
+          }),
+        });
+        this.dbOk = !!r.ok;
+        this.dbResult = r.ok ? `\u2713 ${r.message}` : `\u2717 ${r.error}`;
+      } catch (e) {
+        this.dbOk = false;
+        this.dbResult = '\u2717 Connection test failed';
+      }
+      this.dbTesting = false;
     }
   };
 }

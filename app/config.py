@@ -1,29 +1,57 @@
 """
 Application configuration.
 
-Settings are loaded from (in order of precedence):
+The data store is **always Supabase Postgres**. The .deb / .exe bundles
+ship with a working connection string baked in (see app/_bundled_defaults.py
+and build/_bake_defaults.py) so the app works out of the box.
+
+Settings are loaded, in order of precedence:
   1. Environment variables
   2. .env file
   3. The app's settings.json (written by the in-app Settings page)
-  4. Hardcoded defaults below
+  4. Bundled defaults (baked at build time, see app/_bundled_defaults.py)
+  5. Hardcoded defaults below
 
 The settings.json file is what end users edit through the UI — they do NOT
-need to touch any environment file. The .env file is only useful when
-running from source for development.
+need to touch any environment file.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote_plus
 
 from pydantic_settings import BaseSettings
 
 
+# ---------------------------------------------------------------------------
+# Bundled defaults — populated by the build pipeline.
+# ---------------------------------------------------------------------------
+try:
+    from app._bundled_defaults import BUNDLED  # type: ignore
+except Exception:
+    BUNDLED: dict = {}
+
+
+# ---------------------------------------------------------------------------
+# Hard-coded fallback connection string. The build pipeline overrides this
+# via _bundled_defaults.py for production artifacts; this constant keeps
+# `python launcher.py` working straight out of `git clone`.
+# ---------------------------------------------------------------------------
+DEFAULT_DATABASE_URL = (
+    "postgresql+asyncpg://postgres.ailespxrkdfvureeleox:OzP7sCzv1XRGjZnn"
+    "@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres"
+)
+DEFAULT_SUPABASE_URL = "https://ailespxrkdfvureeleox.supabase.co"
+DEFAULT_SUPABASE_ANON_KEY = "sb_publishable_n5-DKZgPSLAoDN53NsdFdw_GLPLbhMF"
+
+
 def _user_data_dir() -> Path:
-    """Where to store the SQLite DB, settings.json, and screenshots.
+    """Where to store settings.json and screenshots.
 
     Uses platform-appropriate locations:
       - LUMORA_DATA_DIR env var (if set) — wins over everything
@@ -245,20 +273,59 @@ CITIES_BY_COUNTRY = {
 COUNTRIES = list(CITIES_BY_COUNTRY.keys())
 
 
+_PROJECT_REF_RE = re.compile(r"https?://([a-z0-9]+)\.supabase\.co", re.IGNORECASE)
+
+
+def _normalize_pg_url(url: str) -> str:
+    """Make sure SQLAlchemy uses the asyncpg driver for any Postgres URL."""
+    u = url.strip()
+    if u.startswith("postgres://"):
+        u = "postgresql://" + u[len("postgres://"):]
+    if u.startswith("postgresql://"):
+        u = "postgresql+asyncpg://" + u[len("postgresql://"):]
+    return u
+
+
+def supabase_postgres_url(supabase_url: str, password: str) -> str | None:
+    """Build an asyncpg-friendly direct-connection URL from project URL + password.
+
+    Used when the user wants the IPv6-only direct host
+    (db.<ref>.supabase.co:5432). For IPv4-friendly setups, use the pooler
+    URL directly (paste it into the `database_url` setting).
+    """
+    if not supabase_url or not password:
+        return None
+    m = _PROJECT_REF_RE.search(supabase_url.strip())
+    if not m:
+        return None
+    ref = m.group(1).lower()
+    return (
+        f"postgresql+asyncpg://postgres:{quote_plus(password)}"
+        f"@db.{ref}.supabase.co:5432/postgres"
+    )
+
+
 class Settings(BaseSettings):
     app_name: str = "Lumora Code — Client Pipeline"
 
     # API keys (only Gemini is needed for AI features)
-    google_api_key: str = ""
+    google_api_key: str = BUNDLED.get("google_api_key", "")
 
     # Sender info — used to personalize generated outreach
-    sender_name: str = ""
-    sender_company: str = ""
-    sender_website: str = ""
-    sender_email: str = ""
+    sender_name: str = BUNDLED.get("sender_name", "")
+    sender_company: str = BUNDLED.get("sender_company", "")
+    sender_website: str = BUNDLED.get("sender_website", "")
+    sender_email: str = BUNDLED.get("sender_email", "")
 
-    # Storage
-    database_url: str = f"sqlite+aiosqlite:///{DATA_DIR / 'pipeline.db'}"
+    # Supabase (cloud Postgres). Direct DB connection over SQL.
+    supabase_url: str = BUNDLED.get("supabase_url", DEFAULT_SUPABASE_URL)
+    supabase_anon_key: str = BUNDLED.get("supabase_anon_key", DEFAULT_SUPABASE_ANON_KEY)
+    supabase_db_password: str = BUNDLED.get("supabase_db_password", "")
+
+    # Full Postgres connection URL. Defaults to the bundled pooler URL so the
+    # app works with no setup. Override via the Settings page if you want to
+    # point at your own Supabase project (or your own Postgres entirely).
+    database_url: str = BUNDLED.get("database_url", "") or DEFAULT_DATABASE_URL
     screenshots_dir: str = str(SCREENSHOTS_DIR)
 
     # Scraping
@@ -280,6 +347,28 @@ class Settings(BaseSettings):
     def __init__(self, **values):
         merged = {**_load_settings_json(), **values}
         super().__init__(**merged)
+
+    # -- Resolved connection helpers ----------------------------------------
+    @property
+    def effective_database_url(self) -> str:
+        """The Postgres URL the engine actually uses.
+
+        Resolution order:
+          1. Explicit `database_url` (env / settings.json / bundled)
+          2. Supabase URL + DB password → derive direct host URL
+          3. Hard-coded DEFAULT_DATABASE_URL (the project's own pooler)
+        Always Postgres — no SQLite anywhere.
+        """
+        if self.database_url:
+            return _normalize_pg_url(self.database_url)
+        derived = supabase_postgres_url(self.supabase_url, self.supabase_db_password)
+        if derived:
+            return derived
+        return DEFAULT_DATABASE_URL
+
+    @property
+    def database_backend(self) -> str:
+        return "postgres"
 
 
 @lru_cache

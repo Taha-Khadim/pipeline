@@ -19,7 +19,8 @@ outreach — all from one app, on your own machine.
 - **AI lead research + scoring** (Google Gemini, free tier).
 - **AI-generated outreach** — cold emails, call scripts, DMs, follow-ups.
 - **Pipeline dashboard** with status funnel, charts, and KPIs.
-- **No data leaves your machine** — everything stored in a local SQLite DB.
+- **Always Supabase Postgres** — every install reads from / writes to the
+  same cloud database. No local SQLite, no per-machine drift.
 - **Dark + light themes**.
 
 ## Install
@@ -27,7 +28,7 @@ outreach — all from one app, on your own machine.
 ### Ubuntu / Debian
 
 ```bash
-sudo apt install ./lumora-pipeline_1.0.0_amd64.deb
+sudo apt install ./lumora-pipeline_1.0.4_amd64.deb
 ```
 
 Then launch from your app menu (**Lumora Code — Client Pipeline**) or run:
@@ -53,6 +54,33 @@ A desktop shortcut is created automatically. Launch by double-clicking it.
 4. (Optional) Fill in your name + company + website so generated emails
    are signed correctly.
 5. Click **Discover** in the sidebar to start finding leads.
+
+### Cloud database
+
+The bundled `.deb` / `.exe` ship with a working Supabase Postgres
+connection baked in (IPv4-friendly pooler URL). Open
+**http://127.0.0.1:8765/settings** to confirm — the badge should read
+**Supabase Postgres** and the **Test connection** button reports the
+current row count.
+
+To point Lumora at **your own** Supabase project instead:
+
+1. Open <https://supabase.com/dashboard> → your project → **SQL Editor**
+   → **New query** → paste the contents of
+   `scripts/supabase_migration.sql` (or click *View migration SQL* on
+   the Settings page) and run it. The script is idempotent.
+2. In Supabase: **Settings → Database** → copy the **Connection pooling**
+   URL (the IPv4-friendly one — works on every network, including
+   IPv6-disabled ISPs).
+3. In Lumora: **Settings → Supabase Database → Advanced: custom
+   connection URL** → paste it → **Save & switch to Supabase**.
+   The engine reloads on the spot — no restart needed.
+
+You can also run the helper from a terminal:
+
+```bash
+python scripts/setup_supabase.py
+```
 
 ## Build from source
 
@@ -88,11 +116,37 @@ python launcher.py
 | Windows | `%APPDATA%\LumoraPipeline\`                                     |
 | macOS   | `~/Library/Application Support/LumoraPipeline/`                 |
 
-This contains `pipeline.db` (SQLite), `settings.json`, and `screenshots/`.
+This contains `settings.json` (your API keys + an optional override
+Supabase URL) and `screenshots/`. **All** lead, outreach, and scrape
+rows live in your Supabase Postgres project — there is no local
+database file.
 
-Set `LUMORA_DATA_DIR=/some/path` to override.
+Set `LUMORA_DATA_DIR=/some/path` to override the location.
+
+## Pre-baking Supabase credentials into a custom build
+
+If you're building your own .deb / .exe and want it to point at a
+*different* Supabase project (e.g. for distributing to a small team),
+set these env vars before running the build script:
+
+```bash
+# Easiest: paste the full pooler URL and you're done.
+export LUMORA_BUNDLED_DATABASE_URL='postgresql://postgres.PROJECT_REF:DB_PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres'
+
+# Optional extras:
+export LUMORA_BUNDLED_SUPABASE_URL='https://PROJECT_REF.supabase.co'
+export LUMORA_BUNDLED_SUPABASE_KEY='sb_publishable_xxx'
+export LUMORA_BUNDLED_GOOGLE_API_KEY='AIzaSy...'
+
+bash build/build-deb.sh        # or build\build-exe.bat on Windows
+```
+
+The values get written into `app/_bundled_defaults.py` for the duration
+of the build and are restored back to empty afterwards, so nothing leaks
+into the dev tree or git history.
 
 ## Tech stack
 
-Python · FastAPI · SQLAlchemy (async) · SQLite · Playwright ·
-Jinja2 · Tailwind CSS · Alpine.js · Chart.js · Google Gemini · PyInstaller.
+Python · FastAPI · SQLAlchemy (async) · Supabase Postgres (asyncpg) ·
+Playwright · Jinja2 · Tailwind CSS · Alpine.js · Chart.js · Google Gemini
+· PyInstaller.

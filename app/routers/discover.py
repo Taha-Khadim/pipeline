@@ -191,7 +191,7 @@ async def _run_scrape(
 
             job.status = ScrapeJobStatus.COMPLETED
             job.results_count = created
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
             log.info(
                 "Scrape job %d complete: %d new leads from %s",
@@ -202,7 +202,7 @@ async def _run_scrape(
             log.error("Scrape job %d failed: %s", job_id, exc)
             job.status = ScrapeJobStatus.FAILED
             job.error_message = str(exc)
-            job.completed_at = datetime.now(timezone.utc)
+            job.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
             await db.commit()
 
 
